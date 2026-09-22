@@ -170,6 +170,12 @@ def main():
 
     print("\nData types:")
     print(df.dtypes)
+    assert len(df) >= MIN_BOOKS
+    assert df["category"].nunique() >= MIN_CATEGORIES
+    assert df["price_gbp"].dtype.kind == "f"
+    assert df["rating"].between(1, 5).all()
+    assert df["in_stock"].dtype == bool
+    assert df["price_inr"].notna().all()
 
     df.to_csv(
         "data_pipeline/cleaned_books.csv",
