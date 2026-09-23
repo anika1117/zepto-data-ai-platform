@@ -185,3 +185,5 @@ Best parameters:
 max_depth = 5
 max_features = sqrt
 n_estimators = 100
+
+Heteroscedasticity: The residual plot was examined for changing variance. The residual spread shows some variation across fitted values, indicating mild heteroscedasticity.
