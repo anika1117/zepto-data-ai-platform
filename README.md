@@ -16,6 +16,8 @@ Main components:
 - SQL queries using filtering, sorting, limiting, distinct values, ranges, and joins
 - Equivalent JOIN operation using `pandas.merge`
 
+**Design decision:** Multiple categories are scraped until at least 60 books are collected. Cleaned data is stored in a normalized SQLite schema using categories and books tables linked by a foreign key.
+
 ### 2. Analytics
 
 The `analytics` module performs exploratory analysis and machine learning using the Titanic dataset.
@@ -35,12 +37,16 @@ It includes:
 - Fare prediction using Linear Regression
 - Saved complete preprocessing and modeling pipeline using Joblib
 
+**Design decision:** The Titanic dataset is saved locally as `titanic.csv` for offline use. Modeling uses train-only preprocessing through `ColumnTransformer` and `Pipeline` to avoid data leakage.
+
 ### 3. Support Assistant
 
 The `support_assistant` module provides a local Zepto policy support service using document embeddings, ChromaDB retrieval, LangGraph routing, structured Pydantic responses, and FastAPI.
 
 The graded baseline uses deterministic mock mode and does not require an LLM API key.
-zepto-support-assistant
+
+**Design decision:** Policy queries are routed using a deterministic keyword heuristic. Policy queries use ChromaDB retrieval, while general queries use a direct response, keeping the graded baseline deterministic and free of external LLM dependencies.
+
 ### Docker
 
 The Support Assistant includes a Dockerfile for local container execution.
@@ -51,3 +57,8 @@ To build the Docker image from the project root:
 
 ```bash
 docker build -f support_assistant/Dockerfile -t zepto-support-assistant .
+
+To run:
+
+```bash
+docker run -p 7860:7860 zepto-support-assistant
