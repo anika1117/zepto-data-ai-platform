@@ -1,129 +1,53 @@
-# Zepto Support Assistant
+# Zepto Data & AI Platform
 
-## Overview
+This project contains three independent modules built as part of the Zepto Data & AI Platform capstone.
 
-The Zepto Support Assistant is a retrieval-based customer support service that answers questions using a fixed set of Zepto policy documents.
+## Modules
 
-The system uses local document embeddings, ChromaDB for vector retrieval, LangGraph for query routing, Pydantic for structured responses, and FastAPI for exposing the assistant as an API.
+### 1. Data Pipeline
 
-The graded baseline runs in deterministic mock mode and does not require an LLM API key.
+The `data_pipeline` module collects book data from Books to Scrape, cleans and transforms the data, converts GBP prices to INR using the required fixed exchange rate, stores the data in a normalized SQLite database, and demonstrates SQL and pandas-based analysis.
 
-## Architecture
+Main components:
+- Web scraping using Requests and BeautifulSoup
+- Data cleaning and type conversion using pandas
+- GBP to INR conversion using the fixed rate of 1 GBP = 105.50 INR
+- Normalized SQLite database
+- SQL queries using filtering, sorting, limiting, distinct values, ranges, and joins
+- Equivalent JOIN operation using `pandas.merge`
 
-The overall flow is:
+### 2. Analytics
 
-```text
-Policy Documents
-      |
-      v
-ingest.py
-      |
-      v
-all-MiniLM-L6-v2
-      |
-      v
-ChromaDB: zepto_policies
-      |
-      |
-User Query
-      |
-      v
-classify_intent
-      |
-      +-----------------------+
-      |                       |
-      v                       v
-policy_question         general_question
-      |                       |
-      v                       v
-retrieve_and_answer     direct_answer
-      |
-      v
-Top-3 Retrieved Documents
-      |
-      v
-Structured Response
-      |
-      v
-Pydantic Validation
-      |
-      v
-FastAPI /ask
+The `analytics` module performs exploratory analysis and machine learning using the Titanic dataset.
 
-## API Testing
+It includes:
+- Data inspection and missing-value analysis
+- Univariate and bivariate analysis
+- Outlier detection using IQR
+- Correlation analysis
+- Data visualization
+- Logistic Regression
+- Decision Tree
+- Random Forest
+- Class-imbalance handling
+- GridSearchCV
+- ROC-AUC evaluation
+- Fare prediction using Linear Regression
+- Saved complete preprocessing and modeling pipeline using Joblib
 
-The FastAPI service exposes a POST `/ask` endpoint.
+### 3. Support Assistant
 
-### Policy question
+The `support_assistant` module provides a local Zepto policy support service using document embeddings, ChromaDB retrieval, LangGraph routing, structured Pydantic responses, and FastAPI.
 
-Request:
+The graded baseline uses deterministic mock mode and does not require an LLM API key.
+zepto-support-assistant
+### Docker
 
-```json
-{
-  "query": "How long does Zepto take to deliver an order?"
-}
-```
+The Support Assistant includes a Dockerfile for local container execution.
 
-Response:
+The Docker setup uses Uvicorn on port `7860`.
 
-```json
-{
-  "answer": "Based on the retrieved context: Zepto delivers grocery and household essentials to serviceable pin codes within 10 to 30 minutes of order confirmation, depending on the customer's delivery zone and current order volume. Standard del",
-  "sources": [
-    "doc_01",
-    "doc_04",
-    "doc_06"
-  ],
-  "confidence": 1.0
-}
-```
-
-### General question
-
-Request:
-
-```json
-{
-  "query": "What is the capital of India?"
-}
-```
-
-Response:
-
-```json
-{
-  "answer": "I can only answer questions about Zepto policies right now.",
-  "sources": [],
-  "confidence": 1.0
-}
-```
-
-## Running the API
-
-Start the FastAPI service with:
+To build the Docker image from the project root:
 
 ```bash
-uvicorn support_assistant.app:app --reload
-```
-
-The API is available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-Interactive API documentation is available at:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-The default graded mode is deterministic mock mode. It does not require an LLM API key or external LLM service.
-
-Set `MOCK_LLM=0` only when using the optional real-LLM path.
-
-## Docker
-
-A Dockerfile is included for running the FastAPI service locally. The container exposes port `7860` and starts the application using Uvicorn.
-
-Docker execution was not performed in the current development environment because Docker Desktop requires WSL on this system. The Dockerfile is included for reproducible local container execution on a system with Docker configured.
+docker build -f support_assistant/Dockerfile -t zepto-support-assistant .
