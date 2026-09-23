@@ -4,8 +4,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 
+RUN pip install --no-cache-dir --no-deps truststore==0.10.4
 RUN pip install --no-cache-dir -r requirements.txt
-
 COPY support_assistant/ support_assistant/
 
 EXPOSE 7860
