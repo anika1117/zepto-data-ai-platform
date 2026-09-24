@@ -5,11 +5,8 @@ import matplotlib.pyplot as plt
 
 CSV_PATH = "analytics/titanic.csv"
 
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH)
-else:
-    df = sns.load_dataset("titanic")
-    df.to_csv(CSV_PATH, index=False)
+df = sns.load_dataset("titanic")
+df.to_csv(CSV_PATH, index=False)
 print("Shape:")
 print(df.shape)
 
@@ -30,6 +27,7 @@ df = df.drop(columns=["deck"])
 df["age"] = df["age"].fillna(df["age"].median())
 
 df = df.dropna(subset=["embarked", "embark_town"])
+df.to_csv(CSV_PATH, index=False)
 
 print("\nShape after cleaning:")
 print(df.shape)
