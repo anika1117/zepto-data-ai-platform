@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .venv/
 .env
+support_assistant/chroma_db/

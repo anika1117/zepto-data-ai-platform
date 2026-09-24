@@ -12,7 +12,8 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 
 client = chromadb.PersistentClient(path=str(CHROMA_DIR))
 collection = client.get_or_create_collection(
-    name="zepto_policies"
+    name="zepto_policies",
+    metadata={"hnsw:space": "cosine"}
 )
 
 documents = []

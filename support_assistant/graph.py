@@ -1,12 +1,16 @@
 import os
 from typing import TypedDict
+from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 from sentence_transformers import SentenceTransformer
 import chromadb
 from langgraph.graph import StateGraph, START, END
+
 MOCK_LLM = os.getenv("MOCK_LLM", "1")
 
-CHROMA_PATH = "support_assistant/chroma_db"
+BASE_DIR = Path(__file__).resolve().parent
+
+CHROMA_PATH = str(BASE_DIR / "chroma_db")
 COLLECTION_NAME = "zepto_policies"
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -27,27 +31,7 @@ class GraphState(TypedDict, total=False):
     sources: list[str]
     confidence: float
 
-def validate_response(generate_response):
-    corrective_instruction = (
-        "Return a valid response with answer, sources, and confidence."
-    )
 
-    last_error = None
-
-    for attempt in range(3):
-        try:
-            raw_response = generate_response(
-                "" if attempt == 0 else corrective_instruction
-            )
-
-            return AssistantResponse.model_validate(raw_response)
-
-        except ValidationError as error:
-            last_error = error
-
-    raise ValueError(
-        f"Response validation failed after 3 attempts: {last_error}"
-    )
 
 PROMPT_TEMPLATE = """
 ROLE:
