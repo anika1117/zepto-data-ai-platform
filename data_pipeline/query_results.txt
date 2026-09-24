@@ -193,5 +193,6 @@ Output:
        8                                                                  A Year in Provence (Provence #1)      56.88       4        Travel
        9 The Road to Little Dribbling: Adventures of an American in Britain (Notes From a Small Island #2)      23.21       1        Travel
       10                                                         Neither Here nor There: Travels in Europe      38.95       3        Travel
+JOIN results match: True
 
 ================================================================================

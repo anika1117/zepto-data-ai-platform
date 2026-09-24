@@ -102,9 +102,17 @@ def main():
         ]
     ].sort_values("book_id").head(10)
 
+    sql_join_result = pd.read_sql(
+    queries["Query 6 - JOIN"],
+    connection
+)
+    join_matches = sql_join_result.equals(
+    merge_result.reset_index(drop=True)
+)
     output.append("PANDAS MERGE - JOIN REPRODUCTION")
     output.append("Output:")
     output.append(merge_result.to_string(index=False))
+    output.append(f"JOIN results match: {join_matches}")
     output.append("\n" + "=" * 80 + "\n")
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as file:
@@ -112,11 +120,6 @@ def main():
 
     print("SQL queries executed successfully.")
     print("Results saved to:", OUTPUT_PATH)
-    sql_join_result = pd.read_sql(
-    queries["Query 6 - JOIN"],
-    connection
-)
-
     print("\nSQL JOIN result:")
     print(sql_join_result)
 

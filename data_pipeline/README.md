@@ -4,6 +4,14 @@
 
 This module scrapes book data from `books.toscrape.com`, cleans and converts the data, stores it in a normalized SQLite database, and demonstrates SQL and pandas queries.
 
+## Installation
+
+From the repository root:
+
+```bash
+pip install -r requirements.txt
+```
+
 ## Run
 
 From the repository root:
@@ -12,6 +20,7 @@ From the repository root:
 python data_pipeline/pipeline.py
 python data_pipeline/database.py
 python data_pipeline/sql_queries.py
+```
 
 ## Pipeline
 
@@ -21,7 +30,7 @@ python data_pipeline/sql_queries.py
    - `price_gbp` → float
    - `rating` → integer 1–5
    - `in_stock` → boolean
-4. Rows missing required fields are removed.
+4. Rows with missing or unparseable required fields are dropped because the affected records cannot be reliably represented in the final dataset.
 5. Currency conversion uses the fixed rate:
 
 `1 GBP = 105.50 INR`
