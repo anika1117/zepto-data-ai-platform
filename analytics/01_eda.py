@@ -2,36 +2,26 @@ import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
 CSV_PATH = "analytics/titanic.csv"
-
-df = sns.load_dataset("titanic")
+df=sns.load_dataset("titanic")
 df.to_csv(CSV_PATH, index=False)
 print("Shape:")
 print(df.shape)
-
 print("\nInfo:")
 df.info()
-
 print("\nDescribe:")
 print(df.describe())
 
-missing = df.isnull().mean() * 100
-missing = missing[missing > 0].sort_values(ascending=False)
-
+missing=df.isnull().mean() * 100
+missing=missing[missing > 0].sort_values(ascending=False)
 print("\nMissing values:")
 print(missing)
-
-df = df.drop(columns=["deck"])
-
-df["age"] = df["age"].fillna(df["age"].median())
-
-df = df.dropna(subset=["embarked", "embark_town"])
+df=df.drop(columns=["deck"])
+df["age"]=df["age"].fillna(df["age"].median())
+df=df.dropna(subset=["embarked", "embark_town"])
 df.to_csv(CSV_PATH, index=False)
-
 print("\nShape after cleaning:")
 print(df.shape)
-
 print("\nRemaining missing values:")
 print(df.isnull().sum())
 for column in ["age", "fare"]:
@@ -54,18 +44,15 @@ for column in ["age", "fare"]:
 
 
 for column in ["age", "fare"]:
-    q1 = df[column].quantile(0.25)
-    q3 = df[column].quantile(0.75)
-    iqr = q3 - q1
-
-    lower = q1 - 1.5 * iqr
-    upper = q3 + 1.5 * iqr
-
-    outliers = df[
+    q1=df[column].quantile(0.25)
+    q3=df[column].quantile(0.75)
+    iqr=q3 - q1
+    lower=q1 - 1.5 * iqr
+    upper=q3 + 1.5 * iqr
+    outliers=df[
         (df[column] < lower) |
         (df[column] > upper)
     ]
-
     print(f"\n{column} IQR:")
     print("Q1:", q1)
     print("Q3:", q3)
@@ -74,26 +61,27 @@ for column in ["age", "fare"]:
     print("Upper bound:", upper)
     print("Outlier count:", len(outliers))
 
-
-fare_mean = df["fare"].mean()
-fare_median = df["fare"].median()
-fare_mode = df["fare"].mode().iloc[0]
-
+fare_mean=df["fare"].mean()
+fare_median=df["fare"].median()
+fare_mode=df["fare"].mode().iloc[0]
 print("\nFare statistics:")
 print("Mean:", fare_mean)
 print("Median:", fare_median)
 print("Mode:", fare_mode)
-
-if fare_mean > fare_median > fare_mode:
-    print("Fare distribution: right-skewed")
-elif fare_mean < fare_median < fare_mode:
-    print("Fare distribution: left-skewed")
+if fare_mean>fare_median>fare_mode:
+    print("Fare distribution:right-skewed")
+elif fare_mean<fare_median<fare_mode:
+    print("Fare distribution:left-skewed")
 else:
-    print("Fare distribution: approximately symmetric")
+    print("Fare distribution:approximately symmetric")
 print("\nSurvival rate by sex:")
-sex_survival = df.groupby("sex")["survived"].mean()
+female_mask=df["sex"]=="female"
+male_mask=df["sex"]=="male"
+sex_survival=pd.Series({
+    "female": df.loc[female_mask, "survived"].mean(),
+    "male": df.loc[male_mask, "survived"].mean()
+})
 print(sex_survival)
-
 plt.figure()
 sex_survival.plot(kind="bar")
 plt.title("Survival Rate by Sex")
@@ -102,12 +90,13 @@ plt.ylabel("Survival Rate")
 plt.tight_layout()
 plt.savefig("analytics/survival_by_sex.png")
 plt.show()
-
-
 print("\nSurvival rate by passenger class:")
-class_survival = df.groupby("pclass")["survived"].mean()
+class_survival = pd.Series({
+    1: df.loc[df["pclass"] == 1, "survived"].mean(),
+    2: df.loc[df["pclass"] == 2, "survived"].mean(),
+    3: df.loc[df["pclass"] == 3, "survived"].mean()
+})
 print(class_survival)
-
 plt.figure()
 class_survival.plot(kind="bar")
 plt.title("Survival Rate by Passenger Class")
@@ -117,18 +106,42 @@ plt.tight_layout()
 plt.savefig("analytics/survival_by_class.png")
 plt.show()
 
+print("\nSurvival rate by sex and passenger class:")
 
-female_first = df[
+sex_class_survival = pd.Series({
+    ("female", 1): df.loc[(df["sex"] == "female") & (df["pclass"] == 1), "survived"].mean(),
+    ("female", 2): df.loc[(df["sex"] == "female") & (df["pclass"] == 2), "survived"].mean(),
+    ("female", 3): df.loc[(df["sex"] == "female") & (df["pclass"] == 3), "survived"].mean(),
+    ("male", 1): df.loc[(df["sex"] == "male") & (df["pclass"] == 1), "survived"].mean(),
+    ("male", 2): df.loc[(df["sex"] == "male") & (df["pclass"] == 2), "survived"].mean(),
+    ("male", 3): df.loc[(df["sex"] == "male") & (df["pclass"] == 3), "survived"].mean()
+})
+
+print(sex_class_survival)
+
+sex_class_survival = sex_class_survival.unstack()
+
+plt.figure()
+sex_class_survival.plot(kind="bar")
+plt.title("Survival Rate by Sex and Passenger Class")
+plt.xlabel("Sex")
+plt.ylabel("Survival Rate")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.savefig("analytics/survival_by_sex_class.png")
+plt.show()
+
+female_first=df[
     (df["sex"] == "female") &
     (df["pclass"] == 1)
 ]
 
-male_third = df[
+male_third=df[
     (df["sex"] == "male") &
     (df["pclass"] == 3)
 ]
 
-female_first_or_second = df[
+female_first_or_second=df[
     (df["sex"] == "female") &
     ((df["pclass"] == 1) | (df["pclass"] == 2))
 ]
@@ -137,13 +150,9 @@ print("\nBoolean masking examples:")
 print("Female and 1st class survival rate:", female_first["survived"].mean())
 print("Male and 3rd class survival rate:", male_third["survived"].mean())
 print("Female and 1st or 2nd class survival rate:", female_first_or_second["survived"].mean())
-
-
-sex_class_survival = df.groupby(["sex", "pclass"])["survived"].mean()
-
+sex_class_survival=df.groupby(["sex", "pclass"])["survived"].mean()
 print("\nSurvival rate by sex and passenger class:")
 print(sex_class_survival)
-
 sex_class_survival.unstack().plot(kind="bar")
 plt.title("Survival Rate by Sex and Passenger Class")
 plt.xlabel("Sex")
@@ -153,8 +162,7 @@ plt.tight_layout()
 plt.savefig("analytics/survival_by_sex_class.png")
 plt.show()
 
-
-correlation_columns = [
+correlation_columns=[
     "survived",
     "pclass",
     "age",
@@ -162,12 +170,9 @@ correlation_columns = [
     "parch",
     "fare"
 ]
-
-corr = df[correlation_columns].corr()
-
+corr=df[correlation_columns].corr()
 print("\nCorrelation matrix:")
 print(corr)
-
 plt.figure(figsize=(8, 6))
 sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
 plt.title("Titanic Correlation Matrix")
@@ -175,32 +180,25 @@ plt.tight_layout()
 plt.savefig("analytics/correlation_heatmap.png")
 plt.show()
 
-
-pairs = []
-
+pairs=[]
 for i in range(len(correlation_columns)):
     for j in range(i + 1, len(correlation_columns)):
-        col1 = correlation_columns[i]
-        col2 = correlation_columns[j]
-        value = corr.loc[col1, col2]
+        col1=correlation_columns[i]
+        col2=correlation_columns[j]
+        value=corr.loc[col1, col2]
         pairs.append((col1, col2, value))
-
-pairs = sorted(pairs, key=lambda x: abs(x[2]), reverse=True)
-
+pairs=sorted(pairs, key=lambda x: abs(x[2]), reverse=True)
 print("\nTop 2 strongest correlations:")
 for pair in pairs[:2]:
     print(pair[0], "and", pair[1], ":", pair[2])
 print("\nStandardization check:")
-
-standardized = df[["age", "fare"]].copy()
-
+standardized=df[["age", "fare"]].copy()
 for column in ["age", "fare"]:
-    mean = standardized[column].mean()
-    std = standardized[column].std()
-    standardized[column] = (standardized[column] - mean) / std
+    mean=standardized[column].mean()
+    std=standardized[column].std()
+    standardized[column]=(standardized[column] - mean) / std
 
 print("\nBefore standardization:")
 print(df[["age", "fare"]].agg(["mean", "std"]))
-
 print("\nAfter standardization:")
 print(standardized.agg(["mean", "std"]))

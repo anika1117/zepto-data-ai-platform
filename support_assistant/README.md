@@ -2,9 +2,9 @@
 
 ## Overview
 
-The Zepto Support Assistant is a retrieval-based customer support service that answers questions using a fixed corpus of Zepto policy documents.
+The Zepto Support Assistant is a retrieval-based customer support application that answers questions using a fixed corpus of 8 Zepto policy documents.
 
-The system uses local document embeddings with `all-MiniLM-L6-v2`, ChromaDB for vector retrieval, LangGraph for query routing, Pydantic for structured responses, and FastAPI for the API layer.
+The system uses `all-MiniLM-L6-v2` for embeddings, ChromaDB for vector retrieval, LangGraph for query routing, Pydantic for structured responses, and FastAPI for the API layer.
 
 The graded baseline runs in deterministic mock mode and does not require an LLM API key or external LLM service.
 
@@ -27,95 +27,302 @@ support_assistant/
 ├── ingest.py
 ├── Dockerfile
 └── README.md
+```
 
-## Architecture
+## RAG Architecture
 
-The overall RAG pipeline is:
+The application follows the required Retrieval-Augmented Generation pipeline:
 
 ```text
-Policy Documents
-      |
-      v
-Ingestion and Chunking
-      |
-      v
-all-MiniLM-L6-v2 Embeddings
-      |
-      v
-ChromaDB: zepto_policies
-      |
-      v
+8 Zepto Policy Documents
+          |
+          v
+Document Ingestion
+    ingest.py
+          |
+          v
+Embedding Generation
+all-MiniLM-L6-v2
+          |
+          v
+ChromaDB
+zepto_policies
+          |
+          v
 User Query
-      |
-      v
+          |
+          v
+classify_intent
+          |
+     +----+----+
+     |         |
+     v         v
+policy_question  general_question
+     |         |
+     v         v
+retrieve_and_answer  direct_answer
+     |
+     v
+Top-3 Retrieved Documents
+     |
+     v
+Answer Generation
+     |
+     v
+Pydantic Validation
+     |
+     v
+FastAPI /ask
+```
+
+### Pipeline Components
+
+| Stage | File / Component |
+|---|---|
+| Document ingestion | `ingest.py` |
+| Embedding generation | `all-MiniLM-L6-v2` |
+| Vector storage and retrieval | ChromaDB |
+| Vector collection | `zepto_policies` |
+| Intent classification | `classify_intent` node in `graph.py` |
+| Policy retrieval and answer | `retrieve_and_answer` node in `graph.py` |
+| General question answer | `direct_answer` node in `graph.py` |
+| Response validation | Pydantic response model |
+| API | `app.py` |
+| Containerization | `Dockerfile` |
+
+## Data Flow
+1. `ingest.py` loads all 8 policy documents from the `docs/` directory.
+2. The documents are embedded using `all-MiniLM-L6-v2`.
+3. The embeddings and document text are stored in the ChromaDB collection `zepto_policies`.
+4. A user sends a query to the FastAPI `/ask` endpoint.
+5. The query enters the LangGraph workflow.
+6. `classify_intent` determines whether the query is a `policy_question` or `general_question`.
+7. Policy questions are routed to `retrieve_and_answer`.
+8. `retrieve_and_answer` performs embedding-based retrieval and gets the top 3 relevant documents from ChromaDB using cosine similarity.
+9. The retrieved context is used to generate the policy answer.
+10. General questions are routed to `direct_answer`.
+11. The final response is validated using the Pydantic response schema.
+12. FastAPI returns the validated JSON response.
+
+## Ingestion
+
+All 8 policy documents are loaded and embedded into ChromaDB.
+
+The collection name is:
+
+```text
+zepto_policies
+```
+
+The verified ingestion output was:
+
+```text
+Documents loaded: 8
+Generating embeddings...
+
+ChromaDB ingestion complete.
+Collection: zepto_policies
+Total documents: 8
+```
+
+A retrieval test using:
+
+```text
+How long does Zepto take to deliver an order?
+```
+
+returned:
+
+```text
+Retrieved documents:
+1. doc_01
+2. doc_04
+3. doc_06
+```
+
+Run the ingestion pipeline with:
+
+```bash
+python support_assistant/ingest.py
+```
+
+## Intent Routing
+
+The LangGraph workflow uses three nodes:
+
+```text
+classify_intent
+retrieve_and_answer
+direct_answer
+```
+
+The `classify_intent` node uses the required deterministic keyword-based approach in mock mode.
+
+The policy keywords are:
+
+```text
+delivery
+return
+refund
+membership
+tracking
+cancel
+gift card
+support hours
+```
+
+If a query contains one of these keywords, it is classified as:
+
+```text
+policy_question
+```
+
+Otherwise it is classified as:
+
+```text
+general_question
+```
+
+The conditional routing is:
+
+```text
 classify_intent
       |
-      +-------------------------+
-      |                         |
-      v                         v
-policy_question          general_question
-      |                         |
-      v                         v
-retrieve_and_answer       direct_answer
+      +---- policy_question ----> retrieve_and_answer
       |
-      v
-Top-3 Retrieved Chunks
-      |
-      v
-Answer Generation
-      |
-      v
-Pydantic Validation
-      |
-      v
-FastAPI /ask
+      +---- general_question --> direct_answer
+```
 
-### Ingestion
+No LLM call is required for mock intent classification.
 
-`ingest.py` loads all 8 policy documents from the `docs/` directory, generates local embeddings using `all-MiniLM-L6-v2`, and stores them in the ChromaDB collection `zepto_policies`.
+## Retrieval and Generation
 
-### Retrieval
+For a policy question, `retrieve_and_answer` performs real vector retrieval from ChromaDB.
 
-For policy questions, the system queries ChromaDB using cosine similarity and retrieves the top 3 relevant documents.
+The query is embedded using `all-MiniLM-L6-v2`, and the top 3 relevant policy documents are retrieved using cosine similarity.
 
-### Intent Routing
+In mock mode, the answer follows the required format:
 
-`classify_intent` routes policy-related questions to `retrieve_and_answer` and other questions to `direct_answer`.
+```text
+Based on the retrieved context: <top retrieved context snippet>
+```
 
-### Generation
+The snippet is taken from the retrieved context and is approximately 200 characters.
 
-In mock mode, the answer is generated deterministically from the retrieved context. The response is then validated using the Pydantic `AssistantResponse` schema.
+For a general question, `direct_answer` returns the fixed mock response:
 
-### MOCK_LLM
-
-The graded baseline uses deterministic mock mode and does not call an external LLM service. An optional real-LLM path is included separately.
+```text
+I can only answer questions about Zepto policies right now.
+```
 
 ## Structured Prompt
 
-The application uses a structured prompt following the role-context-task-format-length skeleton.
+The optional real-LLM path uses a structured prompt containing the required ROLE, CONTEXT, TASK, FORMAT, and LENGTH sections.
 
-The prompt includes:
+The prompt also contains a negative constraint and a few-shot example.
 
-- Role definition
-- Retrieved context
-- Task instructions
-- Required response format
-- Length constraint
-- An explicit negative constraint instructing the model not to use information outside the provided context
-- A few-shot example
+The structure is:
 
-This prompt is used by the optional real-LLM path. The graded mock path does not make an external LLM call.
-## API Testing
+```text
+ROLE:
+You are a Zepto customer support assistant.
 
-The FastAPI service exposes a POST `/ask` endpoint.
+CONTEXT:
+Use the retrieved Zepto policy documents provided as context.
 
-### Policy question
+TASK:
+Answer the user's question using the provided policy context.
+
+FORMAT:
+Return the response in the required structured format.
+
+LENGTH:
+Keep the response concise and relevant.
+
+NEGATIVE CONSTRAINT:
+Do not use information outside the provided context and do not invent policy details.
+
+FEW-SHOT EXAMPLE:
+User: How long is Zepto delivery?
+Assistant: Answer the question using only the retrieved Zepto policy context.
+```
+
+The graded mock path does not make an external LLM call.
+
+## MOCK_LLM
+
+The default mode is deterministic mock mode.
+
+In mock mode:
+
+- No external LLM API key is required.
+- `classify_intent` uses the required keyword-based classifier.
+- Policy questions perform real top-3 ChromaDB retrieval.
+- Policy answers use the required retrieved-context format.
+- General questions use the required fixed direct-answer response.
+
+When the optional real-LLM path is enabled, the retrieved context is passed to the structured prompt for LLM-based generation.
+
+Therefore, the main difference is:
+
+```text
+MOCK_LLM enabled/default
+    |
+    +--> deterministic classification
+    +--> real ChromaDB retrieval
+    +--> deterministic answer generation
+    +--> no external LLM call
+
+MOCK_LLM disabled
+    |
+    +--> retrieval still provides policy context
+    +--> structured prompt is used
+    +--> optional real LLM generates the answer
+```
+
+## API
+
+The FastAPI application exposes:
+
+```text
+POST /ask
+```
+
+Request format:
+
+```json
+{
+  "query": "How long is Zepto delivery?"
+}
+```
+
+The response contains:
+
+```json
+{
+  "answer": "string",
+  "sources": [],
+  "confidence": 1.0
+}
+```
+
+The response is validated using the Pydantic response model with:
+
+```text
+answer: string
+sources: list
+confidence: float
+```
+
+The confidence value is restricted to the range `0` to `1`.
+
+## API Example 1: Policy Question
 
 Request:
 
 ```json
 {
-  "query": "What are Zepto customer support hours?"
+  "query": "How long is Zepto delivery?"
 }
 ```
 
@@ -123,17 +330,38 @@ Response:
 
 ```json
 {
-  "answer": "Based on the retrieved context: Zepto customer support is available via in-app chat 24 hours a day, 7 days a week, given the time-sensitive nature of quick commerce deliveries. Average in-app chat response time is under 2 minutes.",
+  "answer": "Based on the retrieved context: Zepto delivers grocery and household essentials to serviceable pin codes within 10 to 30 minutes of order confirmation, depending on the customer's delivery zone and current order volume. Standard del",
   "sources": [
+    "doc_01",
     "doc_08",
-    "doc_03",
-    "doc_06"
+    "doc_04"
   ],
   "confidence": 1.0
 }
 ```
 
-### General question
+This demonstrates the policy path:
+
+```text
+/ask
+  |
+  v
+classify_intent
+  |
+  v
+policy_question
+  |
+  v
+retrieve_and_answer
+  |
+  v
+Top-3 ChromaDB Retrieval
+  |
+  v
+Mock Answer
+```
+
+## API Example 2: General Question
 
 Request:
 
@@ -153,33 +381,52 @@ Response:
 }
 ```
 
-## Ingestion
+This demonstrates the general path:
 
-Run the ingestion pipeline with:
+```text
+/ask
+  |
+  v
+classify_intent
+  |
+  v
+general_question
+  |
+  v
+direct_answer
+```
+
+## Running Locally
+
+Run the ingestion pipeline first:
 
 ```bash
 python support_assistant/ingest.py
 ```
 
-## Running the API
-
-Start the FastAPI service with:
+Start the FastAPI application with:
 
 ```bash
-uvicorn support_assistant.app:app --port 7860
+uvicorn support_assistant.app:app --reload
 ```
 
-The API is available at:
+The application was verified locally with Uvicorn.
 
-`http://127.0.0.1:7860`
+The local API runs at:
 
-Interactive API documentation:
+```text
+http://127.0.0.1:8000
+```
 
-`http://127.0.0.1:7860/docs`
+Interactive API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
 
 ## Docker
 
-A Dockerfile is included for running the FastAPI service in a container. The container exposes port `7860`.
+A Dockerfile is included for building and running the FastAPI application in a container.
 
 Build the Docker image from the project root:
 
@@ -190,15 +437,34 @@ docker build -f support_assistant/Dockerfile -t zepto-support-assistant .
 Run the container:
 
 ```bash
-docker run -p 7860:7860 zepto-support-assistant
+docker run --rm -p 7860:7860 zepto-support-assistant
 ```
 
-The API is then available at:
+The container runs the API on port `7860`.
 
-`http://127.0.0.1:7860`
+Docker build was successfully verified:
 
-Interactive API documentation:
+```text
+[+] Building 2.4s (11/11) FINISHED
+```
 
-`http://127.0.0.1:7860/docs`
+Docker startup was successfully verified:
 
-Docker execution was not performed locally because Docker Desktop requires the Linux/WSL environment on this machine.
+```text
+Application startup complete.
+Uvicorn running on http://0.0.0.0:7860
+```
+
+The `/ask` endpoint was also tested successfully from the running Docker container with both a policy question and a general question.
+
+The Docker API is available at:
+
+```text
+http://127.0.0.1:7860
+```
+
+Interactive API documentation is available at:
+
+```text
+http://127.0.0.1:7860/docs
+```
